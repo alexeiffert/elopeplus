@@ -1,3 +1,10 @@
+# General Documentation
+
+## Directories
+- VR - Contains the "Angelos" API JavaScript
+- opencv_js - Contains opencv.js and additional demo JavaScript, etc.
+
+## To Contribute
 Clone Repo
     cd /var/www/html
     git clone https://gitlab.com/ajwoo/elope-plus.git
