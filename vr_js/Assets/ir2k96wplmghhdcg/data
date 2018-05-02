@@ -1,0 +1,35 @@
+var main=function(args)
+{
+var area=args.app.getContentDiv();
+var win=args.app.getWindow();
+
+var canvas=new GLCanvas(area);
+
+var maker=new GLObjectMaker(canvas);
+canvas.whenStarted().then(function()
+{
+canvas.setBackgroundColor(1,1,1,1);
+});
+maker.box({
+width:2,
+height:1,
+depth:1.5
+});
+var my_object=maker.flush();
+var text=new GLTexture(canvas);
+my_object.setTexture(text);
+loadAsset('text.jpg').then(function(url){
+text.load(url);
+});
+canvas.whenDragged().then(function(o,event)
+{
+canvas.getCamera().oneFingerRotate(event,{radius:4});
+});
+canvas.whenDraw().then(function()
+{
+var p=canvas.getPrinter();
+p.translate([0,0,-4]);
+my_object.draw();
+});
+canvas.start();
+}

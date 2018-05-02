@@ -1,25 +1,26 @@
 # General Documentation
 
 ## Directories
-- VR - Contains the "Angelos" API JavaScript
+- vr_js - Contains the "Angelos" API JavaScript
 - opencv_js - Contains opencv.js and additional demo JavaScript, etc.
 
 ## To Contribute
-Clone Repo
+#### Clone Repo
     cd /var/www/html
-    git clone https://gitlab.com/ajwoo/elope-plus.git
+    git clone https://github.com/alexeiffert/elopeplus.git 
 
-Install Apache
-
+#### Install Apache2
+```
     sudo apt-get update
     sudo apt-get install apache2
+```
 
-Adjust the Firewall 
-
+### Adjust the Firewall 
+```
     sudo ufw app list
     sudo ufw allow 'Apache Full'
     sudo ufw status
-
+```
 You should see HTTP traffic allowed in the displayed output:
 Output
     Status: active
@@ -65,7 +66,8 @@ Get Host name
 Go into your web browser and type in
     http://server_domain_or_IP/elope-plus
 
-OpenCV
+#### Build OpenCV.js from source
+(opencv.js is already located in the opencv_js directory)
 
 To Install Emscripten, follow instructions of Emscripten SDK.
     ./emsdk update

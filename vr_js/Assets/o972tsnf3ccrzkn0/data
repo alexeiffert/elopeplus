@@ -1,0 +1,258 @@
+var net;
+var session;
+var me;
+
+var main=function(args)
+{
+net=new VNClient('net1',{capacity:2});
+net.whenConnected().then(function(){
+session=net.getSession();
+me=net.me();
+start(args);
+});
+}
+
+var start=function(args){
+var area=args.app.getContentDiv();
+var win=args.app.getWindow();
+var c=new GLCanvas(area);
+
+var is_pressed=new Array(100);
+c.whenKeyPressed().then(function(keyCode)
+{
+is_pressed[keyCode]=true;
+});
+c.whenKeyReleased().then(function(keyCode)
+{
+is_pressed[keyCode]=false;
+});
+
+var my_position=
+{
+x:Math.floor((Math.random()*4)+1),
+y:0,
+z:Math.floor((Math.random()*4)+1)
+};
+var my_speed=
+{
+x:0,
+y:0,
+z:0
+};
+var my_acceleration=
+{
+x:0,
+y:-0.02,
+z:0
+};
+var distance=function(p1,p2)
+{
+var dx=p1.x-p2.x
+var dy=p1.y-p2.y
+var dz=p1.z-p2.z
+return dx*dx+dy*dy+dz*dz;
+};
+var my_orientation=0;
+var stride=0;
+
+var user_info=vn.cloud.getMe();
+if(user_info.getFields())me.variable('name').set(user_info.getFields()['name']);
+
+
+var media_system=new MediaSystem({audio:true,video:true});
+media_system.getWebCam().onTurnOn=function(){console.log('My camera is on!')};
+
+var bkg=new BackgroundSphere(c,{resolution:35});
+bkg.setTexture(loadTexture("sky01_hdri.jpg",c));
+
+session.whenUserJoins().then(function(u){
+//console . log ( 'User Joined ' + u )
+u.video_decoder=new JPEGStreamDecoder(media_system,{width:240,height:180});
+u.video_decoder.onVideoFrame=function(d){
+
+u.texture.draw(d.getElement());
+
+};
+u.texture=new GLTexture(c);
+});
+
+var encoder=new JPEGStreamEncoder(media_system,{width:240,height:180,fps:10,dframes:29,delay_frames:5});
+encoder.addFrames(true);
+encoder.onVideoFrame=function(encoder,buffer){
+//console . log ( 'A new frame was encoded!' )
+var VIDEO=1;
+var video_stream=me.stream(VIDEO);
+video_stream.addFrame(buffer);
+};
+
+me.stream(1).whenUsersFrameReceived().then(function(e){
+//console . log ( 'Frame received from user ' + e . user )
+e.stream.losslessReception(true);
+e.user.video_decoder.addFrame(e.stream.frame());
+});
+
+session.whenUserLeaves().then(function(u){
+//console . log ( 'User Left ' + u )
+});
+
+
+var om=new GLObjectMaker(c);
+om.translate([0.0,0,-.5]);
+om.box({
+width:1,
+height:1,
+depth:1
+});
+var o=om.flush();
+var t=new GLTexture(c);
+
+om.identity();
+om.translate([0,-2,0]);
+if(false){
+om.translate([-52/2,-4,-52/2]);
+for(var x=0;x<13;x++)
+for(var z=0;z<13;z++)
+{
+var h=Math.random()*3+1;
+om.pushMatrix();
+om.translate([4*x,h/2,4*z]);
+om.box({width:4,height:h,depth:4});
+om.popMatrix();
+}
+}
+else{
+om.rotateX(-Math.PI/2)
+om.rectangle({width:52,height:52,u:7,v:7});
+}
+var floor=om.flush();
+floor.setTexture(loadTexture('sand1.jpg',c));
+
+var drawLevelSegment=function(i,j){
+floor.draw();
+}
+
+c.whenStarted().then(function(){
+//c . setBackgroundColor ( 1 , 0 , 0 , 1 ) ;
+});
+
+c.whenAnimate().then(function()
+{
+
+if(is_pressed[37])my_orientation+=0.05;
+if(is_pressed[39])my_orientation-=0.05;
+if(is_pressed[38])
+{
+stride+=0.02;
+my_speed.x-=Math.sin(my_orientation)*0.005;
+my_speed.z-=Math.cos(my_orientation)*0.005;
+}
+if(is_pressed[40])
+{
+stride+=0.02;
+my_speed.x+=Math.sin(my_orientation)*0.005;
+my_speed.z+=Math.cos(my_orientation)*0.005;
+}
+if(is_pressed[32]&&my_position.y==0)
+{
+my_speed.y=0.35;
+}
+my_speed.x*=0.95;
+my_speed.z*=0.95;
+my_speed.x+=my_acceleration.x;
+my_speed.y+=my_acceleration.y;
+my_speed.z+=my_acceleration.z;
+my_position.x+=my_speed.x;
+my_position.y+=my_speed.y;
+my_position.z+=my_speed.z;
+
+if(my_position.y<0)//floor
+{
+my_position.y=0;
+my_speed.y=-my_speed.y*0.6;
+}
+
+
+
+
+me.p=[my_position.x,my_position.y,my_position.z,my_orientation];
+me.variable('p').broadcast({decimals:2,skip:10});
+var users=session.getUsers();
+for(var i in users)
+{
+if(users[i]!=me&&users[i].p)
+{
+users[i].variable('p').interpolate(10);
+
+
+if(distance(my_position,{
+x:users[i].p[0],
+y:users[i].p[1],
+z:users[i].p[2]
+})<0.5)
+{
+users[i].variable('p').broadcast({skip:10});
+users[i].variable('color').broadcast({skip:10});
+}
+}
+}
+
+});
+
+//this is repeated on every frame
+c.whenDraw().then(function(){
+t.draw(media_system.getWebCam().getElement());
+me.texture=t;
+var p=c.getPrinter()
+
+console.log(my_orientation);
+p.rotateY(-my_orientation);
+p.translate([-my_position.x,-my_position.y,-my_position.z-3]);
+
+bkg.draw();
+
+var xx=Math.floor(my_position.x/52+0.5);
+var zz=Math.floor(my_position.z/52+1);
+
+
+p.pushMatrix();
+for(var i=xx-1;i<=xx+1;i++)
+for(var j=zz-1;j<=zz+1;j++)
+{
+p.pushMatrix();
+p.translate([i*52,0,j*52]);
+drawLevelSegment(i,j);
+p.popMatrix();
+}
+p.popMatrix();
+
+
+//draw others
+var users=session.getUsers();
+var size=0;
+for(var i in users){
+var user_pos=users[i].p;
+if(user_pos){
+p.pushMatrix();
+p.translate([user_pos[0],user_pos[1],user_pos[2]]);
+o.setTexture(users[i].texture);
+o.draw();
+p.popMatrix();
+}
+}
+
+});
+
+c.whenDragged().then(function(object,event)
+{
+c.getCamera().oneFingerRotate(event,{radius:2});
+});
+c.start();
+
+if(args.app.whenTerminated){
+args.app.whenTerminated().then(function(){
+c.stop();
+encoder.addFrames(false);
+if(net&&net.server)net.server.disconnect();
+})
+}
+};
